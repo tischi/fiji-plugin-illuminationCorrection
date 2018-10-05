@@ -51,7 +51,6 @@ public class BaSiCCommand implements Command
 		baSiC.run();
 
 		Log.info( "Done!" );
-
 	}
 
 	public boolean acceptFile( String fileNameEndsWith, String file )

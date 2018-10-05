@@ -94,6 +94,12 @@
 		<dependency>
 			<groupId>net.imagej</groupId>
 			<artifactId>imagej</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>net.imagej</groupId>
+					<artifactId>imagej-scripting</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<dependency>
@@ -104,12 +110,6 @@
 		<dependency>
 			<groupId>net.imagej</groupId>
 			<artifactId>ij</artifactId>
-		</dependency>
-
-		<dependency>
-			<groupId>net.sourceforge.parallelcolt</groupId>
-			<artifactId>parallelcolt</artifactId>
-			<version>0.10.1</version>
 		</dependency>
 
 	</dependencies>
