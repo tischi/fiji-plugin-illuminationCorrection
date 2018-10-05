@@ -1,3 +1,5 @@
+package de.embl.cba.illuminationcorrection.originalsources.cidre;
+
 import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.List;

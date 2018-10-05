@@ -1,3 +1,5 @@
+package de.embl.cba.illuminationcorrection.originalsources.cidre;
+
 public class MinFuncOptions {
 	public int maxIter;			// max iterations for optimization
 	public int MaxFunEvals;		// max evaluations of objective function

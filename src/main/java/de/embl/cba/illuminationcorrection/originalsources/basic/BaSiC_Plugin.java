@@ -1,69 +1,62 @@
-package de.embl.cba.illuminationcorrection.basic;
+package de.embl.cba.illuminationcorrection.originalsources.basic;
 
-import cern.colt.list.tdouble.DoubleArrayList;
-import cern.colt.list.tint.IntArrayList;
-import cern.colt.matrix.tdouble.DoubleMatrix1D;
-import cern.colt.matrix.tdouble.DoubleMatrix2D;
-import cern.colt.matrix.tdouble.algo.DenseDoubleAlgebra;
-import cern.colt.matrix.tdouble.algo.decomposition.DenseDoubleSingularValueDecomposition;
-import cern.colt.matrix.tdouble.impl.DenseDoubleMatrix1D;
-import cern.colt.matrix.tdouble.impl.DenseDoubleMatrix2D;
-import cern.jet.math.tdouble.DoubleFunctions;
-import cern.jet.math.tdouble.DoublePlusMultSecond;
+import java.util.*;
+
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.WindowManager;
-import ij.gui.DialogListener;
-import ij.gui.GenericDialog;
 import ij.gui.NewImage;
-import ij.gui.Plot;
+import ij.macro.Interpreter;
 import ij.measure.ResultsTable;
 import ij.plugin.ContrastEnhancer;
+import ij.plugin.ImageCalculator;
 import ij.plugin.PlugIn;
+import ij.plugin.frame.Recorder;
 import ij.plugin.filter.Analyzer;
-import ij.process.ImageProcessor;
+//import ij.plugin.filter.PlugInFilter;
+import ij.process.*;
+import ij.gui.*;
 
-import java.awt.*;
-import java.util.EmptyStackException;
+import java.awt.AWTEvent;
+import java.awt.Choice;
+import java.awt.Font;
+import java.awt.TextField;
+import java.awt.Checkbox;
+import java.awt.Button;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+import java.awt.image.*;
 
-import static de.embl.cba.illuminationcorrection.basic.BaSiCSettings.*;
+import cern.colt.list.tdouble.DoubleArrayList;
+import cern.colt.list.tint.IntArrayList;
+import cern.colt.matrix.tdouble.DoubleMatrix2D;
+import cern.colt.matrix.tdouble.impl.DenseDoubleMatrix1D;
+import cern.colt.matrix.tdouble.impl.DenseDoubleMatrix2D;
+import cern.colt.matrix.tdouble.algo.DoubleSorting;
+import cern.colt.matrix.tdouble.DoubleMatrix1D;
+import cern.jet.math.tdouble.DoubleFunctions;
+import cern.jet.math.tdouble.DoublePlusMultSecond;
+import cern.jet.stat.tdouble.DoubleDescriptive;
+import cern.colt.matrix.tdouble.DoubleFactory2D;
+import cern.colt.matrix.tdouble.algo.DenseDoubleAlgebra;
+import cern.colt.matrix.tdouble.algo.decomposition.DenseDoubleSingularValueDecomposition;
+import cern.colt.matrix.tint.IntMatrix2D;
+import cern.colt.matrix.tint.IntMatrix1D;
+import cern.colt.matrix.tint.impl.DenseIntMatrix2D;
+import cern.colt.matrix.tint.impl.DenseIntMatrix1D;
 
 
-public class BaSiC
-{
-
-	private final ImagePlus imp;
-	private final ImagePlus imp_flat;
-	private final ImagePlus imp_dark;
-	private final String myShadingEstimationChoice;
-	private final String myShadingModelChoice;
-	private final String myParameterChoice;
-	private final double lambda_flat;
-	private final double lambda_dark;
-	private final String myDriftChoice;
-	private final String myCorrectionChoice;
-
+//public class TestPlugin_ implements PlugInFilter{
+public class BaSiC_Plugin implements PlugIn, DialogListener{
+	
 	private ImageStack stack;
 	private int noOfSlices;
-
+	
 	@SuppressWarnings("unused")
 	private int noOfChannels;
-
-	public BaSiC( BaSiCSettings settings )
-	{
-		imp = settings.imp;
-		imp_flat = settings.imp_flat;
-		imp_dark = settings.imp_dark;
-		myShadingEstimationChoice = settings.myShadingEstimationChoice;
-		myShadingModelChoice = settings.myShadingModelChoice;
-		myParameterChoice = settings.myParameterChoice;
-		lambda_dark = settings.lambda_dark;
-		lambda_flat = settings.lambda_flat;
-		myDriftChoice = settings.myDriftChoice;
-		myCorrectionChoice = settings.myCorrectionChoice;
-	}
-
+	
+	
 	private class Shading{
 		public ImagePlus flatfield;
 		public ImagePlus darkfield;
@@ -74,7 +67,7 @@ public class BaSiC
 		public double[] basefluor;
 		//public double[] ratioflat;
 	}
-
+	
 	private class DecomposedMatrix{
 		public DoubleMatrix2D LowrankComponent;
 		public DoubleMatrix2D SparseComponent;
@@ -91,7 +84,6 @@ public class BaSiC
 		private static final double tolerance = 1e-6;
 		private static final double maxIter = 500;
 	}
-
 	private class Options{
 		// setting default value
 		boolean lambda_auto = true;
@@ -103,10 +95,192 @@ public class BaSiC
 		boolean imageCorr = false;
 		int driftOpt = 0;
 	}
+	
+	private static String[] shadingEstimationOptions = {"Skip estimation and use predefined shading profiles","Estimate shading profiles"};
+	private static String [] shadingModelOptions = {"Estimate flat-field only (ignore dark-field)", "Estimate both flat-field and dark-field"};
+	private static String [] parameterSettingOptions = {"Automatic","Manual"};
+	private static String [] driftOptions = {"Ignore","Replace with zero","Replace with temporal mean"};
+	private static String [] correctionOptions = {"Compute shading and correct images","Compute shading only"};
+	private static String none = "None";
+//	private static int maxChannels = 3;
+//	private boolean autoFillDisabled;
+//	private String firstChannelName;
+//	private static String[] colors = {"Input_sequence","Precomputed_flatfield","Precomputed_darkfield"};
 
+	public void run(String arg) {
+		showDialog();
+	}
+	
+	void showDialog(){
+		int[] wList = WindowManager.getIDList();
+        if (wList==null) {
+            IJ.noImage();
+            return;
+        }
+        String[] titles = new String[wList.length+1];
+        //titles[0] = ""; //default no measured darkfield;
+        for (int i=0; i<wList.length; i++) {
+            ImagePlus imp_temp = WindowManager.getImage(wList[i]);
+            if (imp_temp!=null)
+                titles[i] = imp_temp.getTitle();
+            else
+                titles[i] = "";    
+        titles[wList.length] = none;     
+        }
+        //String[] names = getInitialNames(titles);
+       // boolean macro = IJ.macroRunning();
+		//GUI
+		GenericDialog gd = new GenericDialog("BaSiC",IJ.getInstance());
+		gd.addMessage("BaSiC: " + "A Tool for Background and Shading Correction of Optical Microscopy Images",new Font( Font.SANS_SERIF, Font.BOLD, 13 ));
+		gd.addMessage("");
+		gd.addChoice("Processing_stack", titles, titles[0]);
+		gd.addMessage("");
+		gd.addRadioButtonGroup("Shading_estimation", shadingEstimationOptions, 1, 2, shadingEstimationOptions[1]);
+		gd.addChoice("Flat-field", titles, none);
+		gd.addChoice("Dark-field", titles, none);
+		gd.addMessage("");
+    	gd.addRadioButtonGroup("Shading_model:", shadingModelOptions, 1, 2, shadingModelOptions[0]);
+    	gd.addMessage(""); 	
+    	gd.addRadioButtonGroup("Setting_regularisationparametes:", parameterSettingOptions, 1, 2, parameterSettingOptions[0]);
+    	gd.addSlider("lambda_flat",0.0,5.0,0.5);
+    	gd.addSlider("lambda_dark",0.0,5.0,0.5);
+    	gd.addMessage("");   	
+    	gd.addRadioButtonGroup("Temporal_drift of baseline (ignore or remove & replace):", driftOptions,1,3,driftOptions[0]);
+    	gd.addMessage("");
+    	gd.addRadioButtonGroup("Correction_options:", correctionOptions, 1, 2, correctionOptions[0]);
+    	//gd.addCheckbox("Image correction (untick this option will only compute shading profiles, but not correct images)", true);
+		gd.addMessage("");
+		gd.addMessage("Copyright \u00a9 2016 Tingying Peng, Helmholtz Zentrum München and TUM, Germany. All rights reserved.");
+		final TextField flat_lambda = (TextField) gd.getNumericFields().get(0);
+        final TextField dark_lambda = (TextField) gd.getNumericFields().get(1);
+        dark_lambda.setEnabled(false);
+        flat_lambda.setEnabled(false);
+		// add dialog listener
+		gd.addDialogListener(this);
+		gd.showDialog();
+		if (gd.wasCanceled()) return;
+		processDialog(gd,wList);
+	}
+		public boolean dialogItemChanged(GenericDialog gd, AWTEvent e)
+		{
+			if (gd.wasCanceled()) return false;
+			int stackindex = gd.getNextChoiceIndex();
+			int flatfieldindex = gd.getNextChoiceIndex();
+			int darkfieldindex = gd.getNextChoiceIndex();
+			String myShadingEstimationChoice = gd.getNextRadioButton();
+			String myShadingModelChoice = gd.getNextRadioButton();
+			String myParameterChoice = gd.getNextRadioButton();
+			String myDriftChoice = gd.getNextRadioButton();
+			String myCorrectionChoice = gd.getNextRadioButton();
+			double lambda_flat = gd.getNextNumber();
+			double lambda_dark = gd.getNextNumber();
+	        final TextField flat_lambda = (TextField) gd.getNumericFields().get(0);
+	        final TextField dark_lambda = (TextField) gd.getNumericFields().get(1);
+			if ((myShadingEstimationChoice.equals(shadingEstimationOptions[0]))||(myShadingModelChoice.equals(shadingModelOptions[0]))||(myParameterChoice.equals(parameterSettingOptions[0])))
+				dark_lambda.setEnabled(false);
+			else
+				dark_lambda.setEnabled(true);
+			
+		   if ((myShadingEstimationChoice.equals(shadingEstimationOptions[0]))||(myParameterChoice.equals(parameterSettingOptions[0])))
+			   flat_lambda.setEnabled(false);
+		   else
+			   flat_lambda.setEnabled(true);
+		   
+		   /*if(Recorder.record){
+				 // if (myOptions.shadingEst)
+				  {
+					  Recorder.record("BaSiC","ShadingEstimationOptions=["+myShadingEstimationChoice+"] ShadingModelOptions=["+myShadingModelChoice+"] parameterSettingOptions=["+myParameterChoice+"] lambda_flat="+lambda_flat+" lambda_dark="+lambda_dark+" BaselineOptions=["+myDriftChoice+"] CorrectionOptions=["+myCorrectionChoice+"]");
+				  }
+				  Recorder.setCommand(null);
+				  
+			  }*/
+		   return true;
+		}
+		
+        
+	   void processDialog(GenericDialog gd, int[] wList)
+	   {
+	    // get settings from gd
+	    int StackIndex = gd.getNextChoiceIndex();
+	    int FlatIndex = gd.getNextChoiceIndex();
+	    int DarkIndex = gd.getNextChoiceIndex();
+	    ImagePlus imp = null;
+	    ImagePlus imp_flat = null;
+	    ImagePlus imp_dark = null;
+	    
+	    if (StackIndex==wList.length){
+			IJ.error("Please select an image sequence as the input");
+			return;
+	    }
+	    else
+	    {	    	
+	    	imp = WindowManager.getImage(wList[StackIndex]);
+			if (imp.getBitDepth() == 24)
+			{
+				IJ.error("Please decompose RGB images into single channels.");
+				return;
+			} 	
+			noOfSlices = imp.getNSlices();
+			if (noOfSlices == 1){
+				IJ.error("Input must be an image stack, not a single image");
+				return;
+			}
+			if (FlatIndex!=wList.length) 
+			{
+		        imp_flat = WindowManager.getImage(wList[FlatIndex]);
+		        if (imp_flat.getNSlices() !=1)
+		        {
+		        	IJ.error("Flat-field input must be a single image.");
+					return;
+		        }
+			}
+			if (DarkIndex!=wList.length) 
+			{
+		        imp_dark = WindowManager.getImage(wList[DarkIndex]);
+		        if (imp_dark.getNSlices() !=1)
+		        {
+		        	IJ.error("Dark-field input must be a single image.");
+					return;
+		        }
+			}
+			
+			
+			String myShadingEstimationChoice = gd.getNextRadioButton();
+		    String myShadingModelChoice = gd.getNextRadioButton();
+		    String myParameterChoice = gd.getNextRadioButton();
+		    String myDriftChoice = gd.getNextRadioButton();
+		    String myCorrectionChoice = gd.getNextRadioButton();
+		    double lambda_flat = gd.getNextNumber();
+	    	double lambda_dark = gd.getNextNumber();
+        
+			//* execute the command
+			exec(imp,imp_flat,imp_dark, myShadingEstimationChoice, myShadingModelChoice,myParameterChoice,lambda_flat,lambda_dark, myDriftChoice,myCorrectionChoice);		
+		   }
+	   }
 
-	public void run( )
-	{
+/*public void run(String params, ImagePlus imp)
+{
+	if (imp==null){
+		IJ.error("Please select an image sequence as the input");
+		return;
+	}
+	ImagePlus imp_flat = null;
+	ImagePlus imp_dark = null;
+	
+	exec(imp,imp_flat,imp_dark, myShadingEstimationChoice, myShadingModelChoice,myParameterChoice,lambda_flat,lambda_dark, myDriftChoice,myCorrectionChoice);		
+}*/
+	
+public void exec( ImagePlus imp,
+				  ImagePlus imp_flat,
+				  ImagePlus imp_dark,
+				  String myShadingEstimationChoice,
+				  String myShadingModelChoice,
+				  String myParameterChoice,
+				  double lambda_flat,
+				  double lambda_dark,
+				  String myDriftChoice,
+				  String myCorrectionChoice)
+{
 	    stack = imp.getStack();
 		int outputWidth = stack.getWidth(); 
 		int outputHeight = stack.getHeight();
@@ -175,7 +349,7 @@ public class BaSiC
 		 //*  Iterate through each of the slices of the stack to get the respective pixels array from each slice
 		 	
 	    // Create a new stack object to store resized stack and for processing on each iteration (D)
-	    ImageStack processingStack = new ImageStack( Parameters.processingWidth, Parameters.processingHeight);
+	    ImageStack processingStack = new ImageStack(Parameters.processingWidth, Parameters.processingHeight);
 	    //IJ.log("processingStackDimension" +processingStackDimension);	
 	    for(int j=1; j <= noOfSlices; j++)
 	    {
@@ -188,7 +362,7 @@ public class BaSiC
 //			}
 			imageResized.setInterpolate(true);
 			imageResized.setInterpolationMethod(ImageProcessor.BILINEAR);
-			ImageProcessor temp = imageResized.resize( Parameters.processingWidth, Parameters.processingWidth,true);
+			ImageProcessor temp = imageResized.resize(Parameters.processingWidth, Parameters.processingWidth,true);
 			processingStack.addSlice(temp);
 		}
 	    
@@ -202,9 +376,9 @@ public class BaSiC
 		    	ImageProcessor imageResized = imp_flat.getProcessor().convertToFloat();
 		    	imageResized.setInterpolate(true);
 				imageResized.setInterpolationMethod(ImageProcessor.BILINEAR);
-				DoubleMatrix2D flatfieldMatrix = imageToMatrix( imageResized.resize( Parameters.processingWidth, Parameters.processingWidth,true));
+				DoubleMatrix2D flatfieldMatrix = imageToMatrix( imageResized.resize(Parameters.processingWidth, Parameters.processingWidth,true));
 				flatfieldMatrix.normalize();
-				flatfieldMatrix.assign(DoubleFunctions.mult((double) Parameters.processingWidth* Parameters.processingHeight));
+				flatfieldMatrix.assign(DoubleFunctions.mult((double) Parameters.processingWidth*Parameters.processingHeight));
 				processingShading.flatfield = new ImagePlus("flatfield",matrixToImage(flatfieldMatrix));
 	    		ip_flatfield = processingShading.flatfield.getProcessor();
 		    }
@@ -219,7 +393,7 @@ public class BaSiC
 		    	ImageProcessor imageResized = imp_dark.getProcessor().convertToFloat();
 		    	imageResized.setInterpolate(true);
 				imageResized.setInterpolationMethod(ImageProcessor.BILINEAR);
-				processingShading.darkfield = new ImagePlus("darkfield", imageResized.resize( Parameters.processingWidth, Parameters.processingWidth,true));
+				processingShading.darkfield = new ImagePlus("darkfield", imageResized.resize(Parameters.processingWidth, Parameters.processingWidth,true));	 
 		    	ip_darkfield = processingShading.darkfield.getProcessor();
 		    }
 		    else
@@ -372,8 +546,8 @@ public class BaSiC
 		{
 			DoubleMatrix1D meanD = matrixMean(D);
 			meanD.assign(DoubleFunctions.div(meanD.zSum()/meanD.size()));
-			DenseDoubleMatrix2D W_meanD = new DenseDoubleMatrix2D( Parameters.processingWidth, Parameters.processingHeight);
-			W_meanD.assign(meanD.reshape( Parameters.processingWidth, Parameters.processingHeight));
+			DenseDoubleMatrix2D W_meanD = new DenseDoubleMatrix2D(Parameters.processingWidth,Parameters.processingHeight);
+			W_meanD.assign(meanD.reshape(Parameters.processingWidth, Parameters.processingHeight));
 			W_meanD.dct2(true);
 			Double abs_W = W_meanD.assign(DoubleFunctions.abs).zSum();
 			if (myOptions.lambda_auto)
@@ -402,7 +576,7 @@ public class BaSiC
 		
 		DecomposedMatrix D_decompose = new DecomposedMatrix();
 	    // estimate flatfield and darkfield by iterative reweighting l1 minimisation
-	    for ( int iter = 1; iter<= Parameters.reweightingIteration; iter++)
+	    for (int iter=1; iter<=Parameters.reweightingIteration; iter++)
 	    {
 	    	IJ.log("Reweighting Iteration:"+iter);
 	    	//L1 minimisation based low rand and sparse decomposition
@@ -417,7 +591,7 @@ public class BaSiC
 	     	{  
 	     		weight.viewColumn(u).assign(DoubleFunctions.div(XARowMean.getQuick(u)+1e-6)); //to avoid zero dividing
 	     	}
-	     	weight.assign(DoubleFunctions.chain(DoubleFunctions.inv, DoubleFunctions.chain(DoubleFunctions.plus( Parameters.epslon), DoubleFunctions.abs)));
+	     	weight.assign(DoubleFunctions.chain(DoubleFunctions.inv, DoubleFunctions.chain(DoubleFunctions.plus(Parameters.epslon), DoubleFunctions.abs)));
 	     	//normalize weight to make sure mean of weights to be one
 	     	weight.normalize();
 	     	weight.assign(DoubleFunctions.mult((double)weight.size()));
@@ -426,13 +600,13 @@ public class BaSiC
 	    }
 		DoubleMatrix1D temp_XA = matrixMean(D_decompose.LowrankComponent);
 		temp_XA.assign(D_decompose.Offset, DoubleFunctions.minus);
-		DoubleMatrix2D flatfieldMatrix = new DenseDoubleMatrix2D( Parameters.processingWidth, Parameters.processingHeight);
-		flatfieldMatrix.assign(temp_XA.reshape( Parameters.processingWidth, Parameters.processingHeight));
+		DoubleMatrix2D flatfieldMatrix = new DenseDoubleMatrix2D(Parameters.processingWidth,Parameters.processingHeight);
+		flatfieldMatrix.assign(temp_XA.reshape(Parameters.processingWidth,Parameters.processingHeight));
 		flatfieldMatrix.normalize();
-		flatfieldMatrix.assign(DoubleFunctions.mult((double) Parameters.processingWidth* Parameters.processingHeight));
+		flatfieldMatrix.assign(DoubleFunctions.mult((double) Parameters.processingWidth*Parameters.processingHeight));
 		//IJ.log("Mean of the flatfield matrix:"+flatfieldMatrix.zSum()/(double)flatfieldMatrix.size());
-		DoubleMatrix2D darkfieldMatrix = new DenseDoubleMatrix2D( Parameters.processingWidth, Parameters.processingHeight);
-		darkfieldMatrix.assign(D_decompose.Offset.reshape( Parameters.processingWidth, Parameters.processingHeight));
+		DoubleMatrix2D darkfieldMatrix = new DenseDoubleMatrix2D(Parameters.processingWidth,Parameters.processingHeight);
+		darkfieldMatrix.assign(D_decompose.Offset.reshape(Parameters.processingWidth, Parameters.processingHeight));
 		Shading shadingExp = new Shading();
 		shadingExp.darkfield = new ImagePlus("darkfield",matrixToImage(darkfieldMatrix));
 		shadingExp.flatfield = new ImagePlus("flatfield",matrixToImage(flatfieldMatrix));
@@ -452,7 +626,7 @@ public class BaSiC
 		DoubleMatrix2D D =  stackToMatrix(stack);
 		DoubleMatrix2D flatfieldMatrix = imageToMatrix(flatfield);
 		flatfieldMatrix.normalize();
-		flatfieldMatrix.assign(DoubleFunctions.mult((double) Parameters.processingWidth* Parameters.processingHeight));
+		flatfieldMatrix.assign(DoubleFunctions.mult((double) Parameters.processingWidth*Parameters.processingHeight));
 		DoubleMatrix2D darkfieldMatrix = imageToMatrix(darkfield); 		
 		DoubleMatrix1D baseFluor = new DenseDoubleMatrix1D(D.rows());
 		DoubleMatrix2D weight = new DenseDoubleMatrix2D(D.rows(),D.columns());
@@ -476,7 +650,7 @@ public class BaSiC
 		     	{  
 		     		weight.viewColumn(u).assign(DoubleFunctions.div(baseFluor.getQuick(u)+1e-8)); //to avoid zero dividing
 		     	}
-		     	weight.assign(DoubleFunctions.chain(DoubleFunctions.inv, DoubleFunctions.chain(DoubleFunctions.plus( Parameters.epslon), DoubleFunctions.abs)));
+		     	weight.assign(DoubleFunctions.chain(DoubleFunctions.inv, DoubleFunctions.chain(DoubleFunctions.plus(Parameters.epslon), DoubleFunctions.abs)));
 		     	//normalize weight to make sure mean of weights to be one
 		     	weight.normalize();
 		     	weight.assign(DoubleFunctions.mult((double)weight.size()));
@@ -523,9 +697,9 @@ public class BaSiC
 		DoubleMatrix2D Z1 = new DenseDoubleMatrix2D(D.rows(),D.columns());
 		//DoubleMatrix2D temp_Z1 = new DenseDoubleMatrix2D(D.rows(),D.columns());
 		//DoubleMatrix2D temp_W = new DenseDoubleMatrix2D(D.rows(),D.columns());
-		DenseDoubleMatrix2D temp_Wmean = new DenseDoubleMatrix2D( Parameters.processingHeight, Parameters.processingWidth);
-		DoubleMatrix2D W_hat = new DenseDoubleMatrix2D( Parameters.processingWidth, Parameters.processingHeight);
-		DenseDoubleMatrix2D W_idct_hat = new DenseDoubleMatrix2D( Parameters.processingWidth, Parameters.processingHeight);
+		DenseDoubleMatrix2D temp_Wmean = new DenseDoubleMatrix2D(Parameters.processingHeight,Parameters.processingWidth);
+		DoubleMatrix2D W_hat = new DenseDoubleMatrix2D(Parameters.processingWidth,Parameters.processingHeight);
+		DenseDoubleMatrix2D W_idct_hat = new DenseDoubleMatrix2D(Parameters.processingWidth,Parameters.processingHeight);
 		double[] D_min = D.getMinLocation();
 		double B1_uplimit = D_min[0];
 		double B1_offset = 0.0;
@@ -559,7 +733,7 @@ public class BaSiC
 	     		A_hat.viewRow(v).assign(DoubleFunctions.plus(A_offset.getQuick(v)));
 			
 		  //  temp_W.assign(computeResidual(D,A_hat,E_hat,Y1,mu,ent1));
-		    temp_Wmean.assign(matrixMean(computeResidual(D,A_hat,E_hat,Y1,mu,ent1)).reshape( Parameters.processingWidth, Parameters.processingHeight));
+		    temp_Wmean.assign(matrixMean(computeResidual(D,A_hat,E_hat,Y1,mu,ent1)).reshape(Parameters.processingWidth, Parameters.processingHeight));
 		    temp_Wmean.dct2(true);
 		    W_hat.assign(temp_Wmean, DoubleFunctions.plus);
 		    W_hat.assign(shrinkageOperator(W_hat,myOptions.lambda/(ent1*mu)));
@@ -627,8 +801,8 @@ public class BaSiC
 //		    	ImagePlus A2_offsetImage = new ImagePlus("A_offset step 2",matrixToImage(A_offset.reshape(Parameters.processingHeight,Parameters.processingWidth)));
 //				A2_offsetImage.show();
 		    	// smooth Aoffset
-		    	DenseDoubleMatrix2D W_offset = new DenseDoubleMatrix2D( Parameters.processingHeight, Parameters.processingWidth);
-		    	W_offset.assign(A_offset.reshape( Parameters.processingHeight, Parameters.processingWidth));
+		    	DenseDoubleMatrix2D W_offset = new DenseDoubleMatrix2D(Parameters.processingHeight,Parameters.processingWidth);
+		    	W_offset.assign(A_offset.reshape(Parameters.processingHeight,Parameters.processingWidth));
 		    	W_offset.dct2(true);
 		    	W_offset.assign(shrinkageOperator(W_offset,myOptions.lambda_dark/(ent2*mu)));
 		    	W_offset.idct2(true);
@@ -701,7 +875,7 @@ public class BaSiC
 		DoubleMatrix2D E_hat = new DenseDoubleMatrix2D(D.rows(),D.columns());
 		DoubleMatrix1D A_offset = darkfield.vectorize();
 		DoubleMatrix1D A_coeff = matrixMean(D.viewDice());
-		DenseDoubleMatrix2D W_idct_hat = new DenseDoubleMatrix2D( Parameters.processingWidth, Parameters.processingHeight);
+		DenseDoubleMatrix2D W_idct_hat = new DenseDoubleMatrix2D(Parameters.processingWidth,Parameters.processingHeight);
 		W_idct_hat.assign(flatfield);
 		
 		//temporary variables

@@ -1,3 +1,5 @@
+package de.embl.cba.illuminationcorrection.originalsources.cidre;
+
 public class LbfgsAddResult {
 	public double[][] S;
 	public double[][] Y;

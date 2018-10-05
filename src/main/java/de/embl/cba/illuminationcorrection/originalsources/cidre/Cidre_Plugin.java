@@ -1,3 +1,5 @@
+package de.embl.cba.illuminationcorrection.originalsources.cidre;
+
 import ij.IJ;
 import ij.ImagePlus;
 import ij.WindowManager;
