@@ -71,8 +71,9 @@ public class BaSiCCommand implements Command
 
 	public void setSettingsFromUI()
 	{
-		settings.imp = IJ.openImage( inputFile.getAbsolutePath() );
-		settings.imp.show();
+		IJ.open( inputFile.getAbsolutePath() );
+
+		settings.imp = IJ.getImage();
 		settings.myShadingModelChoice = myShadingModelChoice;
 	}
 

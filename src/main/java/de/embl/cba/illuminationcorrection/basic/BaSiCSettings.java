@@ -21,8 +21,8 @@ public class BaSiCSettings
 	public String myShadingEstimationChoice = shadingEstimationOptions[ 1 ];
 	public String myShadingModelChoice = shadingModelOptions[ 0 ];
 	public String myParameterChoice = parameterSettingOptions[ 0 ];
-	public double lambda_flat;
-	public double lambda_dark;
+	public double lambda_flat = 0.5;
+	public double lambda_dark = 0.5;
 	public String myDriftChoice = driftOptions[ 0 ];
 	public String myCorrectionChoice = correctionOptions[ 0 ] ;
 

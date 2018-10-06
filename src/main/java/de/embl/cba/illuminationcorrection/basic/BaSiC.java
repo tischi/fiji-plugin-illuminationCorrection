@@ -53,6 +53,7 @@ public class BaSiC
 	public BaSiC( BaSiCSettings settings )
 	{
 		imp = settings.imp;
+		noOfSlices = imp.getNSlices();
 		imp_flat = settings.imp_flat;
 		imp_dark = settings.imp_dark;
 		myShadingEstimationChoice = settings.myShadingEstimationChoice;
@@ -177,7 +178,7 @@ public class BaSiC
 	    // Create a new stack object to store resized stack and for processing on each iteration (D)
 	    ImageStack processingStack = new ImageStack( Parameters.processingWidth, Parameters.processingHeight);
 	    //IJ.log("processingStackDimension" +processingStackDimension);	
-	    for(int j=1; j <= noOfSlices; j++)
+	    for(int j=1; j<=noOfSlices; j++)
 	    {
 			ImageProcessor imageResized = stack.getProcessor(j).convertToFloat();
 //			if (!myOptions.darkfieldEst){

@@ -30,22 +30,14 @@ import java.awt.image.*;
 
 import cern.colt.list.tdouble.DoubleArrayList;
 import cern.colt.list.tint.IntArrayList;
-import cern.colt.matrix.tdouble.DoubleMatrix2D;
-import cern.colt.matrix.tdouble.impl.DenseDoubleMatrix1D;
-import cern.colt.matrix.tdouble.impl.DenseDoubleMatrix2D;
-import cern.colt.matrix.tdouble.algo.DoubleSorting;
 import cern.colt.matrix.tdouble.DoubleMatrix1D;
-import cern.jet.math.tdouble.DoubleFunctions;
-import cern.jet.math.tdouble.DoublePlusMultSecond;
-import cern.jet.stat.tdouble.DoubleDescriptive;
-import cern.colt.matrix.tdouble.DoubleFactory2D;
+import cern.colt.matrix.tdouble.DoubleMatrix2D;
 import cern.colt.matrix.tdouble.algo.DenseDoubleAlgebra;
 import cern.colt.matrix.tdouble.algo.decomposition.DenseDoubleSingularValueDecomposition;
-import cern.colt.matrix.tint.IntMatrix2D;
-import cern.colt.matrix.tint.IntMatrix1D;
-import cern.colt.matrix.tint.impl.DenseIntMatrix2D;
-import cern.colt.matrix.tint.impl.DenseIntMatrix1D;
-
+import cern.colt.matrix.tdouble.impl.DenseDoubleMatrix1D;
+import cern.colt.matrix.tdouble.impl.DenseDoubleMatrix2D;
+import cern.jet.math.tdouble.DoubleFunctions;
+import cern.jet.math.tdouble.DoublePlusMultSecond;
 
 //public class TestPlugin_ implements PlugInFilter{
 public class BaSiC_Plugin implements PlugIn, DialogListener{
@@ -176,7 +168,9 @@ public class BaSiC_Plugin implements PlugIn, DialogListener{
 			double lambda_dark = gd.getNextNumber();
 	        final TextField flat_lambda = (TextField) gd.getNumericFields().get(0);
 	        final TextField dark_lambda = (TextField) gd.getNumericFields().get(1);
-			if ((myShadingEstimationChoice.equals(shadingEstimationOptions[0]))||(myShadingModelChoice.equals(shadingModelOptions[0]))||(myParameterChoice.equals(parameterSettingOptions[0])))
+
+
+	        if ((myShadingEstimationChoice.equals(shadingEstimationOptions[0]))||(myShadingModelChoice.equals(shadingModelOptions[0]))||(myParameterChoice.equals(parameterSettingOptions[0])))
 				dark_lambda.setEnabled(false);
 			else
 				dark_lambda.setEnabled(true);
@@ -831,7 +825,7 @@ public void exec( ImagePlus imp,
 		    stopCriterion = normF_Z1/normF_D; 
 		   // IJ.log("normF of Z1"+normF_Z1+"normF of D"+normF_D);
 		    //System.out.println("Stop Criterion" +iteration +"  " +stopCriterion);
-			IJ.log("Stop Criterion" +iter +"  " +stopCriterion); // + "B1_offset" + B1_offset);
+			//IJ.log("Stop Criterion" +iter +"  " +stopCriterion); // + "B1_offset" + B1_offset);
 			
 			if(stopCriterion < Parameters.tolerance)
 				converged = true;
