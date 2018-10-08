@@ -913,7 +913,7 @@ public void exec( ImagePlus imp,
 		    stopCriterion = normF_Z1/normF_D; 
 		   // IJ.log("normF of Z1"+normF_Z1+"normF of D"+normF_D);
 		    //System.out.println("Stop Criterion" +iteration +"  " +stopCriterion);
-			IJ.log("Stop Criterion" +iter +"  " +stopCriterion); // + "B1_offset" + B1_offset);
+			//IJ.log("Stop Criterion" +iter +"  " +stopCriterion); // + "B1_offset" + B1_offset);
 			
 			if(stopCriterion < Parameters.tolerance)
 				converged = true;

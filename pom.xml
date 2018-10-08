@@ -112,6 +112,17 @@
 			<artifactId>ij</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>org.scijava</groupId>
+			<artifactId>batch-processor</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>net.sourceforge.parallelcolt</groupId>
+			<artifactId>parallelcolt</artifactId>
+			<version>0.10.1</version>
+		</dependency>
+
 	</dependencies>
 
 </project>

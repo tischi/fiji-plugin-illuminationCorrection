@@ -1806,7 +1806,7 @@ public class Cidre_Plugin extends Frame implements PlugIn, ActionListener, Adjus
 		
 		//writeToCSVFile(PathIn + "csv\\x_ml_res", mlX2, 1, n);
 		
-		IJ.log(String.format("iter = %d  %s %s    zx,zy=(%1.2f,%1.2f)    E=%g", ITER, MESTIMATOR, term_str, zx,zy, E));
+		//IJ.log(String.format("iter = %d  %s %s    zx,zy=(%1.2f,%1.2f)    E=%g", ITER, MESTIMATOR, term_str, zx,zy, E));
 		//IJ.log(String.format("min = %f, max = %f", mmin, mmax));
 		ITER++;
 		
