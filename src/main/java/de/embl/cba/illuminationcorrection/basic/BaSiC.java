@@ -13,18 +13,13 @@ import cern.jet.math.tdouble.DoublePlusMultSecond;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
-import ij.WindowManager;
-import ij.gui.DialogListener;
-import ij.gui.GenericDialog;
 import ij.gui.NewImage;
 import ij.gui.Plot;
 import ij.measure.ResultsTable;
 import ij.plugin.ContrastEnhancer;
-import ij.plugin.PlugIn;
 import ij.plugin.filter.Analyzer;
 import ij.process.ImageProcessor;
 
-import java.awt.*;
 import java.util.EmptyStackException;
 
 import static de.embl.cba.illuminationcorrection.basic.BaSiCSettings.*;
@@ -49,6 +44,8 @@ public class BaSiC
 
 	@SuppressWarnings("unused")
 	private int noOfChannels;
+	private Shading outputShading;
+	private ImagePlus correctedImage;
 
 	public BaSiC( BaSiCSettings settings )
 	{
@@ -63,6 +60,16 @@ public class BaSiC
 		lambda_flat = settings.lambda_flat;
 		myDriftChoice = settings.myDriftChoice;
 		myCorrectionChoice = settings.myCorrectionChoice;
+	}
+
+	public ImagePlus getFlatField( )
+	{
+		return outputShading.flatfield;
+	}
+
+	public ImagePlus getDarkField( )
+	{
+		return outputShading.darkfield;
 	}
 
 	private class Shading{
@@ -254,20 +261,21 @@ public class BaSiC
 	    	meanbasefluor = meanbasefluor+basefluor[i];	
 	    }
 	    meanbasefluor = meanbasefluor/noOfSlices;
+
+		outputShading = new Shading();
 	    
-	    Shading outputShading = new Shading();
-	    
-	    outputShading.flatfield = new ImagePlus("Flat-field:".concat(title),ip_outputflatfield); 
+	    outputShading.flatfield = new ImagePlus("Flat-field:".concat(title),ip_outputflatfield);
 	    ContrastEnhancer ce = new ContrastEnhancer();
 	    ce.stretchHistogram(ip_outputflatfield,0.35);
-	    IJ.run("Enhance Contrast","saturated = 0.35");
-	    outputShading.flatfield.show();
-	    if (myOptions.darkfieldEst)
+	    //IJ.run("Enhance Contrast","saturated = 0.35");
+	    // outputShading.flatfield.show();
+
+		if (myOptions.darkfieldEst)
 	    {
 	    	outputShading.darkfield = new ImagePlus("Dark-field:".concat(title),ip_outputdarkfield);
 	    	ce.stretchHistogram(ip_outputdarkfield, 0.01);
-	    	IJ.run("Enhance Contrast","saturated = 0.01");
-	    	outputShading.darkfield.show();
+	    	// IJ.run("Enhance Contrast","saturated = 0.01");
+	    	// outputShading.darkfield.show();
 	    }
 	    if(myOptions.driftOpt!=0)
 	    {
@@ -307,12 +315,12 @@ public class BaSiC
 				float[] imageCorrectedPixels = (float[]) imageCorrected.getPixels();
 				if(myOptions.darkfieldEst)
 				{for (int i = 0; i<imageCorrected.getWidth()*imageCorrected.getHeight();i++){
-					imageCorrectedPixels[i] = (float) ((imageCorrectedPixels[i]-outputShading.darkfield.getProcessor().getf(i))/(outputShading.flatfield.getProcessor().getf(i)));	
+					imageCorrectedPixels[i] = (float) ((imageCorrectedPixels[i]- outputShading.darkfield.getProcessor().getf(i))/( outputShading.flatfield.getProcessor().getf(i)));
 					}
 				}
 				else{
 				for (int i = 0; i<imageCorrected.getWidth()*imageCorrected.getHeight();i++){
-					imageCorrectedPixels[i] = (float) (imageCorrectedPixels[i]/(outputShading.flatfield.getProcessor().getf(i)));
+					imageCorrectedPixels[i] = (float) (imageCorrectedPixels[i]/( outputShading.flatfield.getProcessor().getf(i)));
 					}
 				}
 				if(myOptions.driftOpt!=0)
@@ -343,14 +351,19 @@ public class BaSiC
 				corrected_stack.addSlice(imp.getStack().getShortSliceLabel(j), imageCorrected);
 			}
 		    String str1 = "Corrected:";
-		    ImagePlus corrected_imp = new ImagePlus(str1.concat(title),corrected_stack);
-	    	ce.stretchHistogram(corrected_imp.getProcessor(),0.01);
-		    IJ.run("Enhance Contrast","saturated = 0.01");
-	    	corrected_imp.show();
+			correctedImage = new ImagePlus(str1.concat(title),corrected_stack);
+	    	ce.stretchHistogram( correctedImage.getProcessor(),0.01);
+		    // IJ.run("Enhance Contrast","saturated = 0.01");
+	    	// correctedImage.show();
 	    }
 	    
 	  
 		    
+	}
+
+	public ImagePlus getCorrectedImage( )
+	{
+		return correctedImage;
 	}
 	
 	
@@ -658,7 +671,7 @@ public class BaSiC
 		    stopCriterion = normF_Z1/normF_D; 
 		   // IJ.log("normF of Z1"+normF_Z1+"normF of D"+normF_D);
 		    //System.out.println("Stop Criterion" +iteration +"  " +stopCriterion);
-			IJ.log("Stop Criterion" +iter +"  " +stopCriterion); // + "B1_offset" + B1_offset);
+			//IJ.log("Stop Criterion" +iter +"  " +stopCriterion); // + "B1_offset" + B1_offset);
 			
 			if(stopCriterion < Parameters.tolerance)
 				converged = true;

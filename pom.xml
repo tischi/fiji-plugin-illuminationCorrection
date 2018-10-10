@@ -5,11 +5,12 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>22.3.0</version>
+		<version>23.2.0</version>
 	</parent>
 
 	<artifactId>fiji-plugin-illuminationCorrection</artifactId>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>0.1.01</version>
+	<url>https://github.com/tischi/fiji-plugin-illuminationCorrection</url>
 
 	<name>Fiji Plugin Illumination Correction</name>
 	<description>TODO</description>
@@ -72,7 +73,6 @@
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.copyrightOwners>EMBL</license.copyrightOwners>
 		<imagej.app.directory>/Applications/Fiji.app/</imagej.app.directory>
-		<enforcer.skip>true</enforcer.skip>
 	</properties>
 
 
@@ -115,6 +115,11 @@
 		<dependency>
 			<groupId>org.scijava</groupId>
 			<artifactId>batch-processor</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>net.imagej</groupId>
+			<artifactId>imagej-plugins-batch</artifactId>
 		</dependency>
 
 		<dependency>
